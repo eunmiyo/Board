@@ -1,0 +1,120 @@
+package Controller;
+
+import java.io.IOException;
+import java.util.List;
+
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import DAO.BoardDAO;
+import DTO.Board;
+
+
+@WebServlet("/") //모든 경로가 여기로 옴
+public class BoardController extends HttpServlet {
+	private static final long serialVersionUID = 1L;
+	private BoardDAO dao;
+	private ServletContext ctx;
+
+	//BoardController객체를 톰캣이 생성
+	//-> init()호출 , 딱 한번 호출
+	// 공유 가능
+	@Override
+	public void init(ServletConfig config) throws ServletException {
+		super.init(config);
+
+		/**
+		 * init은 서블릿 객체 생성 시 딱 한 번만 실행하므로 
+		 * -> 객체를 한번만 생성해 공유할 수 있다.
+		 * ServletContext : 웹 어플리케이션의 자원 관리
+		 */
+		dao = new BoardDAO();
+		ctx = getServletContext();
+	}
+
+
+	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		request.setCharacterEncoding("UTF-8"); //request객체에 저장된 한글 깨짐 방지
+		doPro(request, response);
+	}
+
+
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		request.setCharacterEncoding("UTF-8"); //request객체에 저장된 한글 깨짐 방지
+		doPro(request, response);
+	}
+	
+	protected void doPro(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		String context = request.getContextPath();
+		String command = request.getServletPath();
+		String site = null;
+		
+		System.out.println("getContextPath:" + request.getContextPath());
+		System.out.println("getServletPath:" + request.getServletPath());
+		System.out.println("command:" + command);
+		
+		//경로 라우팅(경로를 찾아줌)
+		switch (command) {
+		case "/boadr2":
+			site = "index.jsp";
+			break;
+		case "/list":
+			site = getList(request);
+			break;
+		case "/view":
+			site = getView(request);
+			break;
+		}
+		
+		if(site.startsWith("redirect:/")) {
+			
+		} else { // forward
+			ctx.getRequestDispatcher("/" + site).forward(request, response);
+		}
+	}
+	
+	public String getList(HttpServletRequest request) {
+		List<Board> list;
+		
+		try {
+			list= dao.getList();
+			request.setAttribute("boardList", list);
+		} catch (Exception e) {
+			e.printStackTrace();
+			
+			//개발자에게 보여줌
+			ctx.log("게시판 목록 생성 과정에서 문제 발생");
+			
+			//사용자에게 에러메세지를 보여주기 위해 저장
+			request.setAttribute("error", "게시판 목록이 정상적으로 처리되지 않았습니다!");
+		}
+		
+		return "index.jsp";
+	}
+	
+	public String getView(HttpServletRequest request) {
+		int board_no = Integer.parseInt(request.getParameter("board_no"));
+		
+		try {
+			dao.updateViews(board_no); //조회수 증가
+			Board b = dao.getView(board_no);
+			request.setAttribute("board", b);
+		} catch (Exception e) {
+			e.printStackTrace();
+			
+			//개발자에게 보여줌
+			ctx.log("게시글을 가져오는 과정에서 문제 발생");
+			
+			//사용자에게 에러메세지를 보여주기 위해 저장
+			request.setAttribute("error", "게시글을 정상적으로 처리되지 않았습니다!");
+		}
+		
+		return "view.jsp";
+	}
+
+}
